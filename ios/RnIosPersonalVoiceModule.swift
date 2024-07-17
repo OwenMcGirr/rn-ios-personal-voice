@@ -1,44 +1,104 @@
 import ExpoModulesCore
+import AVFoundation
 
 public class RnIosPersonalVoiceModule: Module {
-  // Each module class must implement the definition function. The definition consists of components
-  // that describes the module's functionality and behavior.
-  // See https://docs.expo.dev/modules/module-api for more details about available components.
+  private let synthesizer = AVSpeechSynthesizer()
+
   public func definition() -> ModuleDefinition {
-    // Sets the name of the module that JavaScript code will use to refer to the module. Takes a string as an argument.
-    // Can be inferred from module's class name, but it's recommended to set it explicitly for clarity.
-    // The module will be accessible from `requireNativeModule('RnIosPersonalVoice')` in JavaScript.
     Name("RnIosPersonalVoice")
 
-    // Sets constant properties on the module. Can take a dictionary or a closure that returns a dictionary.
-    Constants([
-      "PI": Double.pi
-    ])
-
-    // Defines event names that the module can send to JavaScript.
-    Events("onChange")
-
-    // Defines a JavaScript synchronous function that runs the native code on the JavaScript thread.
-    Function("hello") {
-      return "Hello world! 👋"
-    }
-
-    // Defines a JavaScript function that always returns a Promise and whose native code
-    // is by default dispatched on the different thread than the JavaScript runtime runs on.
-    AsyncFunction("setValueAsync") { (value: String) in
-      // Send an event to JavaScript.
-      self.sendEvent("onChange", [
-        "value": value
-      ])
-    }
-
-    // Enables the module to be used as a native view. Definition components that are accepted as part of the
-    // view definition: Prop, Events.
-    View(RnIosPersonalVoiceView.self) {
-      // Defines a setter for the `name` prop.
-      Prop("name") { (view: RnIosPersonalVoiceView, prop: String) in
-        print(prop)
+    AsyncFunction("requestAccessToPersonalVoices") { (promise: Promise) in
+      if #available(iOS 17.0, *) {
+        AVSpeechSynthesizer.requestPersonalVoiceAuthorization { status in
+          if status == .authorized {
+            print("Personal voices access granted")
+            promise.resolve(true)
+          } else {
+            print("Personal voices access denied")
+            promise.resolve(false)
+          }
+        }
       }
+    }
+
+    AsyncFunction("personalVoicesAuthorized") { (promise: Promise) in
+      if #available(iOS 17.0, *) {
+        let status = AVSpeechSynthesizer.personalVoiceAuthorizationStatus
+        promise.resolve(status == .authorized)
+      } else {
+        promise.resolve(false)
+      }
+    }
+
+    AsyncFunction("personalVoicesNotAuthorized") { (promise: Promise) in
+      if #available(iOS 17.0, *) {
+        let status = AVSpeechSynthesizer.personalVoiceAuthorizationStatus
+        promise.resolve(status == .notDetermined)
+      } else {
+        promise.resolve(true)
+      }
+    }
+
+    AsyncFunction("deviceDoesNotSupportPersonalVoices") { (promise: Promise) in
+      if #available(iOS 17.0, *) {
+        let status = AVSpeechSynthesizer.personalVoiceAuthorizationStatus
+        promise.resolve(status == .unsupported)
+      } else {
+        promise.resolve(true)
+      }
+    }
+
+    AsyncFunction("deviceDoesNotAllowPersonalVoices") { (promise: Promise) in
+      if #available(iOS 17.0, *) {
+        let status = AVSpeechSynthesizer.personalVoiceAuthorizationStatus
+        promise.resolve(status == .denied)
+      } else {
+        promise.resolve(true)
+      }
+    }
+
+    AsyncFunction("isPersonalVoice") { (voice: String, promise: Promise) in
+      if #available(iOS 17.0, *) {
+        let voice = AVSpeechSynthesisVoice.speechVoices().first { $0.name == voice }
+        promise.resolve(voice?.voiceTraits.contains(.isPersonalVoice) ?? false)
+      } else {
+        promise.resolve(false)
+      }
+    }
+
+    AsyncFunction("getPersonalVoices") { (promise: Promise) in
+      if #available(iOS 17.0, *) {
+        let status = AVSpeechSynthesizer.personalVoiceAuthorizationStatus
+        if status == .authorized {
+          let personalVoices = AVSpeechSynthesisVoice.speechVoices().filter { $0.voiceTraits.contains(.isPersonalVoice) }.map { $0.name }
+          promise.resolve(personalVoices)
+        } else {
+          promise.resolve(["authorization_required"])
+        }
+      } else {
+        promise.resolve(["not_supported"])
+      }
+    }
+
+    Function("speakPersonalVoice") { (text: String, voice: String, pitch: Float, rate: Float) in
+      if #available(iOS 17.0, *) {
+        let voice = AVSpeechSynthesisVoice.speechVoices().first { $0.name == voice }
+        if let voice = voice {
+          let utterance = AVSpeechUtterance(string: text)
+          utterance.voice = voice
+          utterance.pitchMultiplier = pitch
+          utterance.rate = rate
+          synthesizer.speak(utterance)
+        }
+      }
+    }
+
+    Function("stopSpeakingPersonalVoice") {
+      synthesizer.stopSpeaking(at: .immediate)
+    }
+
+    AsyncFunction("isSpeakingPersonalVoice") { (promise: Promise) in
+      promise.resolve(synthesizer.isSpeaking)
     }
   }
 }
