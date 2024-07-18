@@ -46,6 +46,12 @@ export default function App() {
     setVoices(await RnIosPersonalVoice.getPersonalVoices());
   };
 
+  const speak = () => {
+    const rate = 0.5;
+    const pitch = 1.0;
+    RnIosPersonalVoice.speakPersonalVoice("Hello, World!", voices[0], pitch, rate);
+  };
+
   return (
     <View style={styles.container}>
       <Text>Access: {access ? "Granted" : "Denied"}</Text>
@@ -74,6 +80,8 @@ export default function App() {
       <Text onPress={checkIsPersonal}>Check Is Personal</Text>
 
       <Text onPress={getVoices}>Get Voices</Text>
+
+      <Text onPress={speak}>Speak</Text>
     </View>
   );
 }

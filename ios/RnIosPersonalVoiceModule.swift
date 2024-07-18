@@ -80,7 +80,7 @@ public class RnIosPersonalVoiceModule: Module {
       }
     }
 
-    Function("speakPersonalVoice") { (text: String, voice: String, pitch: Float, rate: Float) in
+    Function("speakPersonalVoice") { (text: String, voice: String, pitch: Float32, rate: Float32) in
       if #available(iOS 17.0, *) {
         let voice = AVSpeechSynthesisVoice.speechVoices().first { $0.name == voice }
         if let voice = voice {
